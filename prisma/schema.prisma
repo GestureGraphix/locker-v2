@@ -1,0 +1,356 @@
+// Locker v2 Database Schema
+// This schema defines the PostgreSQL database structure using Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  name          String
+  image         String?
+  role          Role     @default(ATHLETE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Auth (Better Auth)
+  sessions Session[]
+  accounts Account[]
+
+  // Profile
+  profile AthleteProfile?
+
+  // Training
+  trainingSessions TrainingSession[]
+  personalRecords  PersonalRecord[]
+
+  // Nutrition
+  mealLogs      MealLog[]
+  hydrationLogs HydrationLog[]
+
+  // Wellness
+  checkIns CheckIn[]
+
+  // Academics
+  academicItems AcademicItem[]
+
+  // Mobility
+  mobilityLogs MobilityLog[]
+
+  // Coach relationships
+  coachingAthletes CoachAthlete[] @relation("Coach")
+  coaches          CoachAthlete[] @relation("Athlete")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model AthleteProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Athletic info
+  sport    String?
+  position String?
+  team     String?
+  level    String?
+
+  // Physical stats
+  heightInches Int?
+  weightLbs    Int?
+
+  // Nutrition goals
+  calorieGoal   Int @default(2500)
+  proteinGoal   Int @default(150)
+  hydrationGoal Int @default(128) // oz
+
+  // Dietary
+  allergies String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CoachAthlete {
+  id        String @id @default(cuid())
+  coachId   String
+  athleteId String
+  coach     User   @relation("Coach", fields: [coachId], references: [id], onDelete: Cascade)
+  athlete   User   @relation("Athlete", fields: [athleteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([coachId, athleteId])
+  @@index([coachId])
+  @@index([athleteId])
+}
+
+// ============================================================================
+// TRAINING
+// ============================================================================
+
+model TrainingSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  type      SessionType
+  intensity Intensity
+  status    SessionStatus @default(PLANNED)
+
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  duration    Int? // minutes
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises SessionExercise[]
+
+  @@index([userId, scheduledAt])
+  @@index([userId, status])
+}
+
+model SessionExercise {
+  id        String          @id @default(cuid())
+  sessionId String
+  session   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  name   String
+  sets   Int?
+  reps   Int?
+  weight Float?
+  notes  String?
+
+  order Int @default(0)
+
+  @@index([sessionId])
+}
+
+model PersonalRecord {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  exercise String
+  weight   Float?
+  reps     Int?
+  time     Int? // seconds
+  distance Float? // meters
+
+  notes String?
+
+  recordedAt DateTime @default(now())
+
+  @@index([userId, exercise])
+}
+
+// ============================================================================
+// NUTRITION
+// ============================================================================
+
+model MealLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String
+  type     MealType
+  calories Int
+  protein  Int?
+  carbs    Int?
+  fat      Int?
+
+  source String? // "yale-dining", "manual", etc.
+
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+model HydrationLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount   Int // oz
+  loggedAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+// ============================================================================
+// WELLNESS
+// ============================================================================
+
+model CheckIn {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mentalState   Int // 1-10
+  physicalState Int // 1-10
+  notes         String?
+
+  loggedAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+// ============================================================================
+// ACADEMICS
+// ============================================================================
+
+model AcademicItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  type      AcademicType
+  course    String?
+  dueAt     DateTime?
+  completed Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, dueAt])
+  @@index([userId, completed])
+}
+
+// ============================================================================
+// MOBILITY
+// ============================================================================
+
+model MobilityExercise {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  videoUrl    String?
+  bodyPart    String?
+  duration    Int? // seconds
+
+  logs MobilityLog[]
+}
+
+model MobilityLog {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   MobilityExercise @relation(fields: [exerciseId], references: [id])
+
+  duration Int? // seconds
+  notes    String?
+
+  loggedAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  ATHLETE
+  COACH
+  ADMIN
+}
+
+enum SessionType {
+  PRACTICE
+  STRENGTH
+  CARDIO
+  RECOVERY
+  GAME
+}
+
+enum Intensity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum AcademicType {
+  EXAM
+  ESSAY
+  ASSIGNMENT
+  READING
+  PROJECT
+}
