@@ -1,1 +1,9 @@
-{"/_not-found/page":"/_not-found","/api/auth/[...all]/route":"/api/auth/[...all]","/(dashboard)/training/page":"/training","/(auth)/register/page":"/register","/(auth)/login/page":"/login"}
+{
+  "/(auth)/login/page": "/login",
+  "/(auth)/register/page": "/register",
+  "/(dashboard)/training/page": "/training",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/[...all]/route": "/api/auth/[...all]",
+  "/page": "/"
+}
